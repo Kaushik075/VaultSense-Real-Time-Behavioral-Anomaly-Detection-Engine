@@ -35,6 +35,9 @@ High-risk events are logged to PostgreSQL and a Slack alert fires to `#security-
 
 ---
 
+
+---
+
 ## Results
 
 Tested on 250,000 rows of realistic streaming platform data with 3 injected attack patterns:
