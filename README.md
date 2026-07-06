@@ -35,6 +35,7 @@ High-risk events are logged to PostgreSQL and a Slack alert fires to `#security-
 
 ---
 <img width="1832" height="500" alt="Image" src="https://github.com/user-attachments/assets/f64a66a9-5e77-44d4-b5fe-7f576c63a599" />
+
 ---
 
 ## Results
