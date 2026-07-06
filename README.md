@@ -1,3 +1,8 @@
+## VaultSense — Real-Time Behavioral Anomaly Detection Engine
+
+---
+
+
 ## The Problem
 
 Traditional security tools catch known attack signatures. They miss behavioral drift — when a legitimate-looking session does something the real user would never do.
