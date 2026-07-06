@@ -90,7 +90,7 @@ Webhook → Request Validator → Fetch User History (PostgreSQL)
 ---
 
 
-<img width="1575" height="690" alt="Image" src="https://github.com/user-attachments/assets/7c1d5e6f-14ed-4633-be6f-048f6029a7cc" />
+<img width="1572" height="753" alt="Image" src="https://github.com/user-attachments/assets/16e0e0d2-8c91-4654-8ed8-291aba767e1c" />
 
 
 ---
