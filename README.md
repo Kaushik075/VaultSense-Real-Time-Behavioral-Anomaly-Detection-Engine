@@ -52,6 +52,10 @@ Every Slack alert had a different Gemini-generated reason — contextual reasoni
 
 ---
 
+<img width="1373" height="456" alt="Image" src="https://github.com/user-attachments/assets/c4c817bb-e6cf-4f6d-9b07-3854feb0000b" />
+
+---
+
 ## Architecture
 
 ```
