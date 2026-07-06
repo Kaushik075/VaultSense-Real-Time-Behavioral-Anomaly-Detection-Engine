@@ -85,6 +85,17 @@ Webhook → Request Validator → Fetch User History (PostgreSQL)
 
 ---
 
+<img width="1575" height="690" alt="Image" src="https://github.com/user-attachments/assets/83a3c003-95bf-4bac-9127-612880947304" />
+
+---
+
+
+<img width="1575" height="690" alt="Image" src="https://github.com/user-attachments/assets/7c1d5e6f-14ed-4633-be6f-048f6029a7cc" />
+
+
+---
+
+
 ## How to Run
 
 **1. Generate Data**
