@@ -15,10 +15,10 @@ from datetime import datetime, timedelta
 # PASTE YOUR NEON CREDENTIALS HERE
 # ============================================================
 DB_HOST = "ep-odd-river-at628qvm.c-9.us-east-1.aws.neon.tech"
-DB_NAME = "neondb"
-DB_USER = "neondb_owner"
-DB_PASSWORD = "npg_X3gbpY5PrIFz"
-DB_PORT = 5432
+DB_NAME = "******"
+DB_USER = "*****"
+DB_PASSWORD = "********"
+DB_PORT = xxxx
 
 # ============================================================
 # CONNECT
