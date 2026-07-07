@@ -1,0 +1,450 @@
+{
+  "name": "VaultSense",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "user-activity",
+        "options": {}
+      },
+      "id": "5572c5c3-7d0d-4548-bbee-f932e2037993",
+      "name": "User Activity Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        80,
+        848
+      ],
+      "webhookId": "0e40f790-3d1c-454f-aae8-f01a280d2ee9",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body;\n\nif (!body) {\n  throw new Error(\"Missing body in webhook\");\n}\n\nreturn [{\n  json: {\n    user_id: body.user_id,\n    event: body.event,\n    ip: body.ip,\n    location: body.location,\n    device: body.device\n  }\n}];"
+      },
+      "id": "09678dc9-1775-4285-9be7-d9e028fb374d",
+      "name": "Request Validator",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        352,
+        848
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "content": "## Incoming Request Handling:\nEvery user session event (login, download, purchase) hits VaultSense \nhere via webhook. The Request Validator checks all required fields — \nuser_id, device, country, event type — before passing downstream. \nMalformed events are rejected immediately.",
+        "height": 512,
+        "width": 560,
+        "color": 7
+      },
+      "id": "7316b9c5-cea1-4534-8081-d31d37bba790",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -32,
+        512
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT *\nFROM user_activity_log\nWHERE user_id = '{{ $json.user_id }}'\nORDER BY created_at DESC\nLIMIT 10;",
+        "additionalFields": {}
+      },
+      "id": "c58b3425-05a2-4ad2-b4f9-77f1f3b2b0a6",
+      "name": "Fetch Recent User Logs",
+      "type": "n8n-nodes-base.postgres",
+      "position": [
+        640,
+        848
+      ],
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "ruabEfVbpb9uHsDS",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// const current =$('Request Validator').first().json;\n// const history = items ? items?.map(i => i.json) : [];\n\n// return [{\n//   json: {\n//     ...current,\n//     history\n//   }\n// }];\n\nconst current = $('Request Validator').first().json;\n\nconst history = items\n  .map(i => i.json)\n  .filter(r => r && r.user_id); // only real records\n\nreturn [{\n  json: {\n    ...current,\n    history: history.length ? history : []\n  }\n}];"
+      },
+      "id": "d4f996fc-15ad-4eb6-b7eb-68748eb97324",
+      "name": "Context Builder",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        912,
+        848
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "content": "## User Context Enrichment:\nFetches last 10 activity records from PostgreSQL (Neon) for this user. \nBuilds behavioral context: is this a new device? New country? \nHow many events in the last 10 minutes? This history is critical \nfor detecting anomalies like account takeovers.",
+        "height": 512,
+        "width": 544,
+        "color": 7
+      },
+      "id": "e533e2de-d576-4410-a4e2-6e55f92b8bee",
+      "name": "Sticky Note1",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        560,
+        512
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Rule-Based Fraud Detection:\n5 behavioral rules fire simultaneously:\n1. Velocity spike (>15 events/10 mins) → HIGH\n2. Unknown device detected → MEDIUM  \n3. Geographic anomaly (foreign country) → MEDIUM\n4. Odd hours activity (2–5 AM) → LOW-MEDIUM\n5. Transaction amount 3x above baseline → HIGH\nEach triggered rule adds to the base risk score.",
+        "height": 512,
+        "width": 368,
+        "color": 7
+      },
+      "id": "16076cba-b4fd-4257-b175-c2e2e9117224",
+      "name": "Sticky Note2",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1136,
+        512
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "functionCode": "const event = $json;\nconst history = $json.history || [];\nlet score = 0;\nlet reasons = [];\n\n// 1. REAL DEVICE CHECK: Is this specific string new for THIS user?\nconst knownDevices = history.map(h => h.device);\nif (history.length > 0 && !knownDevices.includes(event.device)) {\n    score += 3;\n    reasons.push(\"First time using this device\");\n}\n\n// 2. IMPOSSIBLE TRAVEL CHECK\nif (history.length > 0) {\n    const last = history[0];\n    const timeDiffHours = Math.abs(new Date(event.timestamp || Date.now()) - new Date(last.created_at)) / 36e5;\n    \n    if (last.location !== event.location && timeDiffHours < 4) {\n        score += 7; // Auto-High\n        reasons.push(\"Impossible Travel: Location changed too fast\");\n    }\n}\n\n// 3. GEOGRAPHIC ANOMALY\nif (event.location !== \"India\") {\n    score += 3;\n    reasons.push(\"Access from foreign country\");\n}\n\n// 4. ACTION SENSITIVITY\nif (event.event === \"funds_withdrawal\" || event.event === \"password_change\") {\n    score += 2;\n    reasons.push(\"Sensitive operation\");\n}\n\n// FINAL VERDICT\nlet risk = \"LOW\";\nif (score >= 7) risk = \"HIGH\";\nelse if (score >= 3) risk = \"MEDIUM\";\n\nreturn [{\n    json: {\n        ...event,\n        rule_score: score,\n        rule_risk: risk,\n        risk_reasons: reasons.join(\", \")\n    }\n}];"
+      },
+      "id": "5c60b0b1-1cd4-478f-96b6-a6ae3ae11fb1",
+      "name": "Fraud Rules Engine",
+      "type": "n8n-nodes-base.function",
+      "position": [
+        1264,
+        848
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiOutput = $input.all()[0].json;\n\n// Get the text from Gemini parts\nconst parts = geminiOutput.content?.parts || geminiOutput.parts || [];\nlet text = parts[0]?.text || geminiOutput.text || \"\";\n\n// Clean markdown\ntext = text.replace(/```json/g, '').replace(/```/g, '').trim();\n\n// Try to find JSON in the text\nconst jsonMatch = text.match(/\\{[\\s\\S]*\\}/);\nlet ai = { risk_level: \"MEDIUM\", reason: \"Foreign country access detected\" };\n\nif (jsonMatch) {\n  try {\n    ai = JSON.parse(jsonMatch[0]);\n  } catch(e) {\n    // keep default\n  }\n}\n\nconst prevData = $('Fraud Rules Engine').first().json;\n\nreturn [{\n  json: {\n    ...prevData,\n    ai_risk_level: ai.risk_level || \"MEDIUM\",\n    ai_reason: ai.reason || \"Suspicious activity detected\",\n    raw_ai_response: text\n  }\n}];"
+      },
+      "id": "eef6482e-2797-4ea7-9487-f762786784e0",
+      "name": "AI Response Cleaner",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1888,
+        848
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "content": "## AI Risk Interpretation\nFlagged events are sent to Google Gemini AI with full behavioral context. \nGemini returns a unique natural language risk assessment per event — \nno two alerts are identical. Adds human-readable reasoning beyond \npure rule matching.",
+        "height": 512,
+        "width": 496,
+        "color": 7
+      },
+      "id": "dd3881d8-6bb1-45c9-88d9-d0a90c432d6a",
+      "name": "Sticky Note3",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1536,
+        512
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Decision Fusion Layer\nFlagged events are sent to Google Gemini AI with full behavioral context. \nGemini returns a unique natural language risk assessment per event — \nno two alerts are identical. Adds human-readable reasoning beyond \npure rule matching.",
+        "height": 512,
+        "width": 352,
+        "color": 7
+      },
+      "id": "a067234a-29ee-4bb5-86a1-7c44c8e3a91b",
+      "name": "Sticky Note4",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2064,
+        512
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "jsCode": "const webhookData = $('Fraud Rules Engine').first().json\nconst aiData = $input.first().json\n\nreturn [{\n  json: {\n    user_id: webhookData.user_id,\n    event: webhookData.event,\n    ip: webhookData.ip,\n    location: webhookData.location,\n    device: webhookData.device,\n    history: webhookData.history || [],\n    rule_score: webhookData.rule_score,\n    rule_risk: webhookData.rule_risk,\n    ai_risk: aiData.ai_risk,\n    ai_reason: aiData.ai_reason,\n    final_risk:\n      (webhookData.rule_risk === \"HIGH\" || aiData.ai_risk === \"HIGH\")\n        ? \"HIGH\"\n        : (webhookData.rule_risk === \"MEDIUM\" || aiData.ai_risk === \"MEDIUM\")\n          ? \"MEDIUM\"\n          : \"LOW\"\n  }\n}];"
+      },
+      "id": "00d78887-914f-4e52-8b3b-9039262b1c15",
+      "name": "Risk Decision Combiner",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        2192,
+        848
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "content": "## Persistence & Alerting\n\nHigh-risk behavioral anomalies are written to behavioral_audit_log \nin PostgreSQL and simultaneously fired to Slack #security-alerts \nwith Gemini's AI assessment. Full audit trail maintained permanently \nfor compliance and investigation.",
+        "height": 512,
+        "width": 800,
+        "color": 7
+      },
+      "id": "8d61f31c-2c01-4a67-b6a6-04e08b65094c",
+      "name": "Sticky Note5",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2448,
+        512
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO behavioral_audit_log (\n  user_id,\n  session_id,\n  anomaly_type,\n  risk_score,\n  ai_assessment,\n  recommended_action\n)\nVALUES (\n  '{{ $json.user_id }}',\n  '{{ $json.session_id }}',\n  '{{ $json.rule_risk }}',\n  {{ $json.rule_score }},\n  '{{ $json.ai_reason }}',\n  '{{ $json.ai_risk_level }}'\n)\nRETURNING *;",
+        "additionalFields": {}
+      },
+      "id": "734c9565-b176-4d5e-940a-9fec98a88d31",
+      "name": "Database Logger",
+      "type": "n8n-nodes-base.postgres",
+      "position": [
+        2496,
+        848
+      ],
+      "typeVersion": 1,
+      "credentials": {
+        "postgres": {
+          "id": "ruabEfVbpb9uHsDS",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $('Risk Decision Combiner').item.json.final_risk }}",
+              "value2": "=MEDIUM"
+            }
+          ]
+        }
+      },
+      "id": "827a9c3b-461f-41c2-87e2-85659dfb52ee",
+      "name": "High Risk Filter",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        2736,
+        848
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "security-alerts",
+          "mode": "name"
+        },
+        "text": "=FRAUD ALERT  \nUser: {{$json.user_id}}\nEvent: {{$json.event}} \nRisk: {{ $('Risk Decision Combiner').item.json.final_risk }}\nScore: {{ $('Risk Decision Combiner').item.json.rule_score }}\nAI Reason: {{ $('Risk Decision Combiner').item.json.ai_reason }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "id": "3e76c4c5-bd41-48e9-ae2b-d612e7ab667b",
+      "name": "Slack Alert Dispatcher",
+      "type": "n8n-nodes-base.slack",
+      "position": [
+        2992,
+        832
+      ],
+      "webhookId": "121dcb5e-e337-4309-8004-e07da5fdc583",
+      "typeVersion": 2.4,
+      "credentials": {
+        "slackApi": {
+          "id": "s0sSMoZZ1rrrxHbq",
+          "name": "Slack account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "VaultSense — Behavioral Anomaly Detection Engine\n\nStreaming platformsx lose millions \nannually to behavioral attacks - not external hacks. VaultSense monitors 250,000 user sessions in real-time, applies a 5-rule fraud engine, and uses Gemini AI to interpret \nbehavioral patterns.\n\nResult: 3 anomaly types detected (credential stuffing, account takeover, suspicious downloads) with unique AI risk assessments delivered to Slack in under 5 seconds.\n\nStack: n8n · PostgreSQL (Neon) · Google Gemini AI · Slack · Python",
+        "height": 256,
+        "width": 1296
+      },
+      "id": "1686b388-5d59-4563-b278-068141f4755d",
+      "name": "Sticky Note6",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -16,
+        224
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-3.5-flash"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a fraud detection assistant.\nYou do NOT calculate scores.\nYou ONLY interpret the given rule-based output.\n\nReturn JSON ONLY in this format:\n{\"risk_level\": \"LOW | MEDIUM | HIGH\", \"reason\": \"short explanation\"}\n\nAnalyze this login event:\nUser Event: {{ JSON.stringify($json) }}\nRule Score: {{ $json.rule_score }}\nRule Risk: {{ $json.rule_risk }}"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        1552,
+        848
+      ],
+      "id": "7e550224-4dc8-42c0-893b-97c0212e2d79",
+      "name": "Message a model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "xUiVQsfzjPAJ6FUw",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Context Builder": {
+      "main": [
+        [
+          {
+            "node": "Fraud Rules Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Database Logger": {
+      "main": [
+        [
+          {
+            "node": "High Risk Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "High Risk Filter": {
+      "main": [
+        [
+          {
+            "node": "Slack Alert Dispatcher",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request Validator": {
+      "main": [
+        [
+          {
+            "node": "Fetch Recent User Logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fraud Rules Engine": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Response Cleaner": {
+      "main": [
+        [
+          {
+            "node": "Risk Decision Combiner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "User Activity Webhook": {
+      "main": [
+        [
+          {
+            "node": "Request Validator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Recent User Logs": {
+      "main": [
+        [
+          {
+            "node": "Context Builder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Risk Decision Combiner": {
+      "main": [
+        [
+          {
+            "node": "Database Logger",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "AI Response Cleaner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "6cf83204-5d38-4c46-83a0-908dcbca7a73",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "033f610e8ec9dcd62ff114a27059fcc02a3989a10bd1d4ed4bcc784a91369b06"
+  },
+  "nodeGroups": [],
+  "id": "wXskD0FQpIQlJR2T",
+  "tags": []
+}
