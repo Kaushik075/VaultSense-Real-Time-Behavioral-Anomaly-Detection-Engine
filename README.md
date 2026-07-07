@@ -123,6 +123,7 @@ Invoke-WebRequest -Uri "http://localhost:5678/webhook/user-activity" `
 -UseBasicParsing
 ```
 
+<img width="1472" height="607" alt="Image" src="https://github.com/user-attachments/assets/39b8796a-758a-40fa-8645-63a4aea1959e" />
 
 ---
 Check `#security-alerts` in Slack for the alert.
