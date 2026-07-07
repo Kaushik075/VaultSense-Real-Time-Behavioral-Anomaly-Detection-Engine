@@ -155,6 +155,8 @@ vaultsense/
 **DriftGuard** — Autonomous Data Quality Observability Agent
 Monitors data pipelines for null rates, schema drift, and statistical anomalies.
 
+https://github.com/Kaushik075/DriftGuard---Autonomous-Data-Quality-Observability-Agent
+
 Together: DriftGuard ensures data reliability. VaultSense ensures behavioral security.
 
 ---
