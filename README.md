@@ -123,6 +123,8 @@ Invoke-WebRequest -Uri "http://localhost:5678/webhook/user-activity" `
 -UseBasicParsing
 ```
 
+
+---
 Check `#security-alerts` in Slack for the alert.
 
 ---
