@@ -5,20 +5,24 @@ Generates 25,000 user activity rows + baselines + injected anomalies
 Completes in ~2-3 minutes
 """
 
+import os
 import psycopg2
 import psycopg2.extras  # for fast batch insert
 import random
 import uuid
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
 
 # ============================================================
 # PASTE YOUR NEON CREDENTIALS HERE
 # ============================================================
-DB_HOST = "***********"
-DB_NAME = "******"
-DB_USER = "*****"
-DB_PASSWORD = "********"
-DB_PORT = 5432 
+load_dotenv()
+
+DB_HOST = os.getenv("NEON_DB_HOST")
+DB_NAME = os.getenv("NEON_DB_NAME")
+DB_USER = os.getenv("NEON_DB_USER")
+DB_PASSWORD = os.getenv("NEON_DB_PASSWORD")
+DB_PORT = os.getenv("NEON_DB_PORT", "5432")
 
 # ============================================================
 # CONNECT
