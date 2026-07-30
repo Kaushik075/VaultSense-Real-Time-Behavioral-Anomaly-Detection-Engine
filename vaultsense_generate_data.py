@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 # ============================================================
 # PASTE YOUR NEON CREDENTIALS HERE
 # ============================================================
-DB_HOST = "ep-odd-river-at628qvm.c-9.us-east-1.aws.neon.tech"
+DB_HOST = "***********"
 DB_NAME = "******"
 DB_USER = "*****"
 DB_PASSWORD = "********"
