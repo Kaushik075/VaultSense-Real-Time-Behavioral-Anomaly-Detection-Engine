@@ -1,0 +1,25 @@
+# Environment & secrets
+.env
+.env.local
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# n8n local runtime (only relevant if you ever export the full instance folder)
+.n8n/
+n8n_data/
+
+# OS / Editor
+.DS_Store
+.vscode/
+.idea/
+
+# Logs
+*.log
