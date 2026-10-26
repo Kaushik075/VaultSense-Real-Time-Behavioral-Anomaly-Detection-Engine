@@ -104,14 +104,22 @@ Webhook → Request Validator → Fetch User History (PostgreSQL)
 
 **1. Generate Data**
 ```bash
-pip install psycopg2-binary
+pip install psycopg2-binary python-dotenv
 python vaultsense_generate_data.py
 ```
 
-Update `DB_HOST`, `DB_PASSWORD` in the script with your Neon credentials.
+Before running, create a `.env` file next to the script with your Neon credentials (it is git-ignored):
+
+```
+NEON_DB_HOST=your-neon-host
+NEON_DB_NAME=your-database
+NEON_DB_USER=your-user
+NEON_DB_PASSWORD=your-password
+NEON_DB_PORT=5432
+```
 
 **2. Import Workflow**
-- Open n8n → Import workflow → upload `vaultsense_workflow.json`
+- Open n8n → Import workflow → upload `VaultSense.json`
 - Add credentials: PostgreSQL (Neon) + Google Gemini API + Slack Bot Token
 - Activate the workflow
 
@@ -135,7 +143,7 @@ Check `#security-alerts` in Slack for the alert.
 ```
 vaultsense/
 ├── vaultsense_generate_data.py   # Data generation script
-├── vaultsense_workflow.json      # n8n workflow export
+├── VaultSense.json               # n8n workflow export
 └── README.md
 ```
 
